@@ -20,7 +20,7 @@ const anthropic = new Anthropic({
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // Инициализация базы данных
-const db = new sqlite3.Database('/app/calorie_bot.db');
+const db = new sqlite3.Database('/app/data/calorie_bot.db');
 
 // Создание таблиц при запуске
 db.serialize(() => {
