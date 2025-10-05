@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  calorie-bot:
+    build: .
+    container_name: calorie-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./calorie_bot.db:/app/calorie_bot.db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
