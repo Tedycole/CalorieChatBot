@@ -20,7 +20,7 @@ const anthropic = new Anthropic({
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // Инициализация базы данных
-const db = new sqlite3.Database('/app/data/calorie_bot.db');
+const db = new sqlite3.Database('calorie_bot.db');
 
 // Создание таблиц при запуске
 db.serialize(() => {
@@ -1367,6 +1367,7 @@ async function processPhotoFood(base64Image, chatId, telegramId, processingMessa
           reply_markup: {
             inline_keyboard: [
               [{ text: '🛒 Купить анализы', callback_data: 'show_buy_menu' }],
+              [{ text: '💎 Безлимит на месяц', callback_data: 'buy_unlimited' }],
               [{ text: '📊 Посмотреть статистику', callback_data: 'show_today_stats' }]
             ]
           }
@@ -1487,6 +1488,7 @@ async function processFoodFromVoice(text, chatId, telegramId) {
           reply_markup: {
             inline_keyboard: [
               [{ text: '🛒 Купить анализы', callback_data: 'show_buy_menu' }],
+              [{ text: '💎 Безлимит на месяц', callback_data: 'buy_unlimited' }],
               [{ text: '📊 Посмотреть статистику', callback_data: 'show_today_stats' }]
             ]
           }
@@ -1658,15 +1660,27 @@ bot.on('message', async (msg) => {
 
 // ============= НАПОМИНАНИЯ =============
 
-// Напоминания каждый день в 21:00
-cron.schedule('0 21 * * *', () => {
+// Напоминания каждый день в 20:00
+cron.schedule('0 17 * * *', () => {
   console.log('⏰ Отправляем напоминания...');
   const today = new Date().toISOString().split('T')[0];
   
-  db.all(`SELECT DISTINCT u.telegram_id 
+  // Массив разных вариантов напоминаний
+  const reminderMessages = [
+    '🍽️ Не забудь записать что ел сегодня!\n\nПросто напиши мне описание еды, и я подсчитаю калории.',
+    '⏰ Вечерняя проверка! Всё ли ты записал сегодня?\n\nОтправь мне что съел, чтобы не потерять статистику 📊',
+    '🥗 Привет! Как прошел твой день по питанию?\n\nЗапиши что ел - займет всего минуту!',
+    '📝 Время подвести итоги дня!\n\nЧто ты ел сегодня? Напиши мне, и я посчитаю калории.',
+    '🍕 Эй! Не забываем следить за питанием 😊\n\nЗапиши что съел сегодня, чтобы я добавил в статистику.',
+    '⭐ Напоминаю про твой дневник питания!\n\nОтправь что ел сегодня - текстом, голосом или фото.',
+    '🎯 День подходит к концу! Всё записал?\n\nЕсли нет - самое время добавить приемы пищи!',
+    '🌙 Вечерний чекпоинт!\n\nДавай запишем что ты ел сегодня, чтобы завтра увидеть прогресс 📈'
+  ];
+  
+  db.all(`SELECT DISTINCT u.telegram_id, u.first_name
           FROM users u 
           LEFT JOIN food_entries fe ON u.id = fe.user_id AND fe.date = ?
-          WHERE fe.id IS NULL`, [today], (err, users) => {
+          WHERE fe.id IS NULL AND u.goal_set = TRUE`, [today], (err, users) => {
     if (err) {
       console.error('❌ Ошибка получения пользователей для напоминаний:', err);
       return;
@@ -1675,10 +1689,13 @@ cron.schedule('0 21 * * *', () => {
     console.log('📤 Отправляю напоминания', users.length, 'пользователям');
     
     users.forEach(user => {
-      bot.sendMessage(user.telegram_id, 
-        '🍽️ Не забудь записать что ел сегодня!\n\n' +
-        'Просто напиши мне описание еды, и я подсчитаю калории.'
-      );
+      // Выбираем случайное сообщение для каждого пользователя
+      const randomMessage = reminderMessages[Math.floor(Math.random() * reminderMessages.length)];
+      const personalizedMessage = user.first_name 
+        ? `${user.first_name}, ${randomMessage.charAt(0).toLowerCase()}${randomMessage.slice(1)}`
+        : randomMessage;
+      
+      bot.sendMessage(user.telegram_id, personalizedMessage);
     });
   });
 });
